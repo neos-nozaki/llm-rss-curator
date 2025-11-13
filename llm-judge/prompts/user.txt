@@ -1,0 +1,14 @@
+以下の記事が、技術者にとって要約する価値があるかを1-10のスコアで評価してください。
+
+【ユーザーの興味（優先順）】
+{user_interests}
+
+【評価基準】
+{evaluation_criteria}
+
+【記事情報】
+タイトル: {title}
+要約: {summary}
+
+---
+{response_instructions}

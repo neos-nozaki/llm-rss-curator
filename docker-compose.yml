@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+  rss-feeder:
+    build:
+      context: ./rss-feeder
+      dockerfile: Dockerfile
+    container_name: rss-feeder
+    volumes:
+      - ./shared/storage:/app/storage
+      - ./rss-feeder:/app
+    env_file:
+      - .env
+    environment:
+      - STORAGE_PATH=/app/storage
+    # 定期実行する場合はcronまたは手動実行
+    command: python main.py
+
+  llm-judge:
+    build:
+      context: ./llm-judge
+      dockerfile: Dockerfile
+    container_name: llm-judge
+    volumes:
+      - ./shared/storage:/app/storage
+      - ./llm-judge:/app
+    env_file:
+      - .env
+    environment:
+      - STORAGE_PATH=/app/storage
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      - rss-feeder
+    command: python main.py
+
+  web-scraper:
+    build:
+      context: ./web-scraper
+      dockerfile: Dockerfile
+    container_name: web-scraper
+    volumes:
+      - ./shared/storage:/app/storage
+      - ./web-scraper:/app
+    env_file:
+      - .env
+    environment:
+      - STORAGE_PATH=/app/storage
+    command: python main.py
+
+  llm-processor:
+    build:
+      context: ./llm-processor
+      dockerfile: Dockerfile
+    container_name: llm-processor
+    volumes:
+      - ./shared/storage:/app/storage
+      - ./llm-processor:/app
+    env_file:
+      - .env
+    environment:
+      - STORAGE_PATH=/app/storage
+    command: python main.py
+
+  data-cleanup:
+    build:
+      context: ./data-cleanup
+      dockerfile: Dockerfile
+    container_name: data-cleanup
+    volumes:
+      - ./shared/storage:/app/storage
+      - ./data-cleanup:/app
+    env_file:
+      - .env
+    environment:
+      - STORAGE_PATH=/app/storage
+      - RETENTION_DAYS=${RETENTION_DAYS:-30}
+    # dry_runモードで確認: docker-compose run data-cleanup python main.py --dry-run
+    # 実削除: docker-compose run data-cleanup python main.py
+    command: python main.py --dry-run
+
+networks:
+  default:
+    name: rss-summarizer-network

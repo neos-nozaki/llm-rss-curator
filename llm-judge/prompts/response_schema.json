@@ -1,0 +1,25 @@
+{
+  "type": "object",
+  "properties": {
+    "score": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10,
+      "description": "記事の価値を1-10で評価したスコア",
+      "example": 8
+    },
+    "reason": {
+      "type": "string",
+      "description": "評価理由（1-2文）",
+      "example": "LLMの新しいファインチューニング手法を詳細に解説しており、実践的なコード例も含まれている。"
+    },
+    "article_type": {
+      "type": "string",
+      "enum": ["news", "tutorial"],
+      "description": "記事のタイプ。news=速報・ニュース系（簡潔な要約が適切）、tutorial=解説・チュートリアル系（詳細な解説が適切）",
+      "example": "tutorial"
+    }
+  },
+  "required": ["score", "reason", "article_type"],
+  "additionalProperties": false
+}

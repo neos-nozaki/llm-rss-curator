@@ -1,0 +1,57 @@
+{
+  "score_threshold": 6.0,
+  "interests": [
+    {
+      "topic": "AI/LLMの最新情報、解説、考察記事",
+      "priority": 1,
+      "note": "特に技術的深掘りと根拠が明確な考察を重視"
+    },
+    {
+      "topic": "AWS（AI/機械学習サービス、サーバレスアーキテクチャ、コンテナ関連）",
+      "priority": 2,
+      "note": "特にBedrock、Lambdaの実践的な活用。一般的なアップデート情報は低優先"
+    },
+    {
+      "topic": "Azure（AI Services、Document Intelligence、コンテナ関連）",
+      "priority": 3,
+      "note": "AI関連サービスやDocument Intelligenceの活用事例や新機能。.NETや一般的な製品アップデートは除外"
+    },
+    {
+      "topic": "開発のチームビルディング",
+      "priority": 4,
+      "note": "組織づくり、開発プロセス改善"
+    },
+    {
+      "topic": "最新技術の深掘り解説記事",
+      "priority": 5,
+      "note": "根拠が明確で技術的に詳細な内容"
+    }
+  ],
+  "evaluation_criteria": {
+    "critical_requirements": [
+      "ファクトチェック済み（偽情報・未検証情報は除外）",
+      "解説・考察に明確な根拠がある（引用、実験結果、公式ドキュメント等）"
+    ],
+    "exclusions": [
+      "単なる事例紹介・導入事例（例: 「○○社がOpenAIを導入して成功」）",
+      "企業の成功体験談・ケーススタディのみの記事",
+      "技術的洞察のない導入レポート",
+      ".NET、C#、Visual Studioに関する記事（AI/LLM文脈を除く）",
+      "Windows、SQL Server等のMicrosoft製品アップデート（AI/LLM文脈を除く）",
+      "Azure以外のMicrosoft製品の一般的なアップデート情報"
+    ],
+    "high_score": {
+      "range": "8-10",
+      "description": "技術的な深い洞察、新しい手法・ツール紹介、実践的なチュートリアル、根拠が明確な考察"
+    },
+    "medium_score": {
+      "range": "5-7",
+      "description": "一般的な技術ニュース、製品アップデート情報"
+    },
+    "low_score": {
+      "range": "1-4",
+      "description": "表面的な情報、マーケティング色が強い、既知の情報、根拠不明確、偽情報の可能性、単なる事例紹介"
+    }
+  },
+  "description": "フィルタリング設定（ユーザー固有）: score_thresholdは1-10のスコアでこの値以上の記事のみ処理。interestsは優先度付き興味トピック。evaluation_criteriaはLLMが評価に使用する基準。"
+}
