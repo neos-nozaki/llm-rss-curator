@@ -357,15 +357,25 @@ echo "ARTICLE_MODEL=gpt-4o" >> .env.production  # 本番は高品質モデル
 # ケース3: 評価基準を変更（プロンプトファイルを編集）
 vim llm-judge/prompts/user.txt
 
-# ケース4: 出力フィールドを追加（スキーマを編集）
+# ケース4: 出力フィールドを追加(スキーマを編集)
 vim llm-judge/prompts/response_schema.json
 # → コードは自動的に新フィールドを処理
 
-# ケース5: プロンプトセットを切り替え（ファイル差し替え）
+# ケース5: プロンプトセットを切り替え(ファイル差し替え)
 cp prompts-experimental/* llm-judge/prompts/
 ```
 
 **コード変更・再ビルド不要！** 🎉
+
+## 📚 ドキュメント
+
+詳細なドキュメントは[docs/](docs/)ディレクトリにあります。
+
+- **[記事閲覧ツール完全ガイド](docs/ARTICLE_VIEWER.md)** - インタラクティブモード、ページャー機能、フィルタリング、既読管理
+- **[カスタマイズガイド](docs/CUSTOMIZATION.md)** - プロンプト編集、フィルタリング設定、フィード追加
+- **[運用ガイド](docs/OPERATIONS.md)** - 自動化、監視、バックアップ
+- **[トラブルシューティング](docs/TROUBLESHOOTING.md)** - 問題解決とデバッグ
+- **[アーキテクチャ](docs/ARCHITECTURE.md)** - 設計思想と技術詳細
 
 ## クイックスタート
 
@@ -410,13 +420,22 @@ docker-compose run --rm web-scraper
 docker-compose run --rm llm-processor
 ```
 
-### 4. 結果の確認
+### 4. 記事を読む
 
-要約された記事は`shared/storage/processed-articles/`に保存されます:
+要約された記事は`shared/storage/processed-articles/`に保存され、Article Viewerで快適に閲覧できます:
 
 ```bash
-ls -R shared/storage/processed-articles/
+# インタラクティブモードで記事を読む（ページャー機能付き）
+docker-compose run --rm article-viewer
+
+# 未読記事のみ表示
+docker-compose run --rm article-viewer --unread
+
+# 今日の記事のみ
+docker-compose run --rm article-viewer --today --unread
 ```
+
+詳細は[記事閲覧ツール完全ガイド](docs/ARTICLE_VIEWER.md)を参照してください。
 
 ## システムアーキテクチャ
 

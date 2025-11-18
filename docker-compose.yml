@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   rss-feeder:
     build:
@@ -77,6 +75,25 @@ services:
     # dry_runモードで確認: docker-compose run data-cleanup python main.py --dry-run
     # 実削除: docker-compose run data-cleanup python main.py
     command: python main.py --dry-run
+
+  article-viewer:
+    build:
+      context: ./article-viewer
+      dockerfile: Dockerfile
+    container_name: article-viewer
+    volumes:
+      - ./shared/storage:/app/storage
+      - ./article-viewer:/app
+    env_file:
+      - .env
+    environment:
+      - STORAGE_PATH=/app/storage
+    stdin_open: true
+    tty: true
+    # インタラクティブモード: docker-compose run --rm article-viewer
+    # リスト表示のみ: docker-compose run --rm article-viewer --list-only
+    # 今日の記事: docker-compose run --rm article-viewer --today
+    command: python main.py --interactive
 
 networks:
   default:

@@ -35,9 +35,11 @@ ENV/
 # Storage (ローカルデータ - Git管理外)
 shared/storage/rss-feeds/
 shared/storage/scraped-articles/
-shared/storage/article-summaries/
+shared/storage/processed-articles/
+shared/storage/article_states.json
 # ストレージディレクトリ構造は保持
 !shared/storage/.gitkeep
+!shared/storage/README.md
 
 # Pytest
 .pytest_cache/
