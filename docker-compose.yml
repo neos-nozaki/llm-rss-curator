@@ -91,10 +91,7 @@ services:
     stdin_open: true
     tty: true
     # インタラクティブモード: docker-compose run --rm article-viewer
-    # リスト表示のみ: docker-compose run --rm article-viewer --list-only
-    # 今日の記事: docker-compose run --rm article-viewer --today
+    # リスト表示のみ: docker-compose run --rm article-viewer python main.py --list-only
+    # 今日の記事: docker-compose run --rm article-viewer python main.py --today
+    # ヘルプ表示: docker-compose run --rm article-viewer python main.py --help
     command: python main.py --interactive
-
-networks:
-  default:
-    name: rss-summarizer-network

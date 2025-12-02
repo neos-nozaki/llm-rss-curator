@@ -13,7 +13,10 @@
    ↓
    RSSフィードから title, summary, link, published を取得
    ↓
-   storage/rss-feeds/{feed_name}/{article_id}.json に保存
+   既存記事チェック（URLのMD5ハッシュで重複判定）
+   ↓
+   新規記事のみ storage/rss-feeds/{feed_name}/{article_id}.json に保存
+   ※既存記事は filter_score 等の追加フィールドを保持してマージ更新
 
 2️⃣ LLM Judge (LLMによる価値判定 + タイプ分類) ★ Judge as LLM
    ↓
@@ -406,6 +409,21 @@ vim .env  # OPENAI_API_KEYなどを設定
 
 ### 3. Dockerコンテナの起動
 
+#### 🚀 一括実行（推奨）
+
+```bash
+# RSS取得からLLM処理まで全自動で実行
+./run-pipeline.sh
+```
+
+このスクリプトは以下の4段階を順次実行します:
+1. RSS Feeder - 新規記事メタデータ取得
+2. LLM Judge - 記事の価値判定 + タイプ分類
+3. Web Scraper - 高評価記事の本文抽出
+4. Article Processor - 要約・解説生成
+
+#### 個別実行（デバッグ用）
+
 ```bash
 # 1. RSS Feederを実行（新規記事メタデータ取得）
 docker-compose run --rm rss-feeder
@@ -500,6 +518,11 @@ llm-rss-curator/
 - メタデータ（`storage/rss-feeds/`）
 - スクレイピング済み本文（`storage/scraped-articles/`）
 - 要約・解説（`storage/processed-articles/`）
+
+**削除基準:**
+- `RETENTION_DAYS`（デフォルト: 7日）より古い記事を削除
+- 件数制限による削除は廃止（RSSフィードに含まれる記事を削除すると無限ループが発生するため）
+- 日数ベースの削除のみで、確実にRSSフィードから消えた古い記事だけを削除
 
 **実行方法:**
 
@@ -716,7 +739,29 @@ docker-compose run --rm llm-processor
 
 ### 記事が重複して取得される
 
-- `shared/storage/rss-feeds/`を確認し、既存の記事IDと照合されているか確認
+**原因:** RSS Feederが既存記事を誤って再保存している場合があります。
+
+**解決方法:**
+1. 記事の重複を確認:
+   ```bash
+   # 同じタイトルの記事を検索
+   grep -r "記事タイトル" shared/storage/rss-feeds/
+   ```
+
+2. RSS Feederのログを確認:
+   ```bash
+   docker-compose run --rm rss-feeder 2>&1 | grep "保存完了"
+   ```
+   - 「保存完了」が毎回同じ記事IDで出力される場合は問題あり
+
+3. 既存記事チェックが正しく動作しているか確認:
+   - `article_exists()` メソッドがファイルの存在を正しくチェック
+   - 既存ファイルがある場合は `filter_score` 等を保持してマージ更新
+
+**2025年11月修正済み:**
+- RSS Feederは既存記事を再保存しないよう修正
+- LLM Judgeの追加フィールド（filter_score等）を保持する仕組みを実装
+- 件数制限による削除を廃止（日数ベースのみ）
 
 ### スクレイピングが失敗する
 

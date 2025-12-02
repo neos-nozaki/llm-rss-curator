@@ -45,18 +45,49 @@ class RSSFeeder:
         article_path = self.rss_feeds_dir / feed_name / f"{article_id}.json"
         return article_path.exists()
     
-    def save_article_metadata(self, feed_name: str, article_data: dict):
-        """記事メタデータを保存"""
+    def save_article_metadata(self, feed_name: str, article_data: dict) -> bool:
+        """
+        記事メタデータを保存
+        
+        既存ファイルがある場合は、LLM Judgeが追加したフィールド
+        （filter_score, filter_reason, interest_match, article_type）を保持したまま
+        基本情報（title, summary等）のみ更新する。
+        
+        Args:
+            feed_name: フィード名
+            article_data: 記事メタデータ
+            
+        Returns:
+            True: 新規ファイルを作成した場合
+            False: 既存ファイルを更新した場合
+        """
         feed_dir = self.rss_feeds_dir / feed_name
         feed_dir.mkdir(parents=True, exist_ok=True)
         
         article_id = article_data['id']
         article_path = feed_dir / f"{article_id}.json"
         
+        # 既存ファイルの場合: LLM Judgeの追加フィールドを保持してマージ
+        if article_path.exists():
+            try:
+                with open(article_path, 'r', encoding='utf-8') as f:
+                    existing_data = json.load(f)
+                
+                existing_data.update(article_data)
+                
+                with open(article_path, 'w', encoding='utf-8') as f:
+                    json.dump(existing_data, f, ensure_ascii=False, indent=2)
+                
+                return False
+            except Exception as e:
+                logger.warning(f"既存データの読み込み失敗（上書き保存します）: {e}")
+        
+        # 新規ファイル作成
         with open(article_path, 'w', encoding='utf-8') as f:
             json.dump(article_data, f, ensure_ascii=False, indent=2)
         
         logger.info(f"保存完了: {feed_name}/{article_id}.json")
+        return True
     
     def cleanup_old_articles_by_date(self):
         """指定日数より古い記事を全フィードから削除"""
@@ -104,41 +135,51 @@ class RSSFeeder:
             logger.info(f"クリーンアップ完了: 合計 {total_deleted}件削除")
     
     def cleanup_old_articles(self, feed_name: str):
-        """古い記事を削除して最新N件だけ保持"""
+        """
+        古い記事を削除して最新N件だけ保持（公開日ベース）
+        
+        注意: 現在このメソッドは無効化されています。
+        RSSフィードに含まれる記事を削除すると、次回実行時に再度保存されてしまい、
+        無限ループが発生するため。代わりにcleanup_old_articles_by_date()を使用。
+        """
         feed_dir = self.rss_feeds_dir / feed_name
         if not feed_dir.exists():
             return
         
-        # すべての記事ファイルを取得
         article_files = list(feed_dir.glob('*.json'))
-        
         if len(article_files) <= self.max_articles:
-            return  # 削除不要
+            return
         
-        # 更新日時でソート（新しい順）
-        article_files.sort(key=lambda f: f.stat().st_mtime, reverse=True)
+        def get_published_date(file_path):
+            """記事の公開日を取得（パース失敗時はファイルのmtimeを使用）"""
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                published_str = data.get('published', '')
+                if published_str:
+                    return parsedate_to_datetime(published_str)
+            except Exception:
+                pass
+            return datetime.fromtimestamp(file_path.stat().st_mtime)
         
-        # 古いファイルを削除
+        article_files.sort(key=get_published_date, reverse=True)
         files_to_delete = article_files[self.max_articles:]
         deleted_count = 0
         
         for file_path in files_to_delete:
             article_id = file_path.stem
-            
-            # 関連する全ファイルを削除（scraped, summary も）
             scraped_file = self.storage_path / 'scraped-articles' / feed_name / f"{article_id}.txt"
             summary_file = self.storage_path / 'article-summaries' / feed_name / f"{article_id}.md"
             
             try:
-                file_path.unlink()  # メタデータ削除
+                file_path.unlink()
                 if scraped_file.exists():
                     scraped_file.unlink()
                 if summary_file.exists():
                     summary_file.unlink()
                 deleted_count += 1
-                logger.debug(f"削除: {article_id}")
             except Exception as e:
-                logger.error(f"削除エラー: {article_id} - {str(e)}")
+                logger.error(f"削除エラー ({article_id}): {str(e)}")
         
         if deleted_count > 0:
             logger.info(f"古い記事を削除: {feed_name} - {deleted_count}件")
@@ -149,6 +190,10 @@ class RSSFeeder:
         feed_url = feed_config['url']
         
         logger.info(f"フィード取得開始: {feed_name} ({feed_url})")
+        
+        # 注: cleanup_old_articles()は無効化
+        # RSSフィードに含まれる記事は削除すべきではない（また保存されてしまうため）
+        # 代わりに、cleanup_old_articles_by_date()で7日以上古い記事を削除
         
         try:
             feed = feedparser.parse(feed_url)
@@ -164,27 +209,36 @@ class RSSFeeder:
                 if not article_url:
                     continue
                 
-                # 記事の公開日をチェック（古すぎる記事はスキップ）
-                published_str = entry.get('published', '')
-                if published_str:
-                    try:
-                        # RFC 2822形式をパース（例: "Thu, 19 Jan 2017 08:00:00 GMT"）
-                        published_date = parsedate_to_datetime(published_str)
-                        if published_date < cutoff_date.replace(tzinfo=published_date.tzinfo):
-                            logger.debug(f"スキップ（古い記事: {published_date.date()}）: {entry.get('title', 'No Title')[:50]}")
-                            continue
-                    except Exception as e:
-                        logger.debug(f"日付パースエラー（{published_str}）: {e}")
-                        # パースできない場合は取得を続行
+                # 公開日チェック: MAX_ARTICLE_AGE_DAYS より古い記事はスキップ
+                published_str = entry.get('published', '') or entry.get('updated', '')
+                if not published_str:
+                    logger.warning(f"公開日なし - スキップ: {entry.get('title', 'No Title')[:50]}")
+                    continue
+                
+                try:
+                    published_date = parsedate_to_datetime(published_str)
+                    
+                    # タイムゾーンを考慮した日付比較
+                    if published_date.tzinfo:
+                        cutoff_date_aware = cutoff_date.replace(tzinfo=published_date.tzinfo)
+                        is_too_old = published_date < cutoff_date_aware
+                    else:
+                        is_too_old = published_date < cutoff_date
+                    
+                    if is_too_old:
+                        continue
+                        
+                except Exception as e:
+                    logger.warning(f"日付パース失敗（{published_str}）- スキップ: {entry.get('title', 'No Title')[:50]}")
+                    continue
                 
                 article_id = self.generate_article_id(article_url)
                 
-                # 既存チェック
+                # 既存記事はスキップ
                 if self.article_exists(feed_name, article_id):
-                    logger.debug(f"スキップ（既存）: {article_id}")
                     continue
                 
-                # メタデータ抽出
+                # 新規記事のメタデータを保存
                 article_data = {
                     'id': article_id,
                     'feed_name': feed_name,
@@ -196,11 +250,8 @@ class RSSFeeder:
                     'fetched_at': datetime.now().isoformat()
                 }
                 
-                self.save_article_metadata(feed_name, article_data)
-                new_articles += 1
-            
-            # 古い記事を削除（件数制限）
-            self.cleanup_old_articles(feed_name)
+                if self.save_article_metadata(feed_name, article_data):
+                    new_articles += 1
             
             logger.info(f"完了: {feed_name} - 新規記事 {new_articles}件")
             return new_articles

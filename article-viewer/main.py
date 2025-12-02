@@ -5,6 +5,7 @@ Article Viewer - 処理済み記事を読みやすく表示
 import os
 import json
 import argparse
+import readline  # readlineキーバインドを有効化
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
@@ -13,10 +14,16 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.table import Table
 from rich.prompt import Prompt, Confirm
+from rich.align import Align
+from rich.text import Text
 from rich import box
 from article_state import ArticleStateManager
 
 console = Console()
+
+# 本文表示の幅（画面幅に対する比率: 0.0-1.0）
+# 例: 0.5 = 50%の幅、左右に25%ずつの余白
+CONTENT_WIDTH_RATIO = 0.5
 
 
 class ArticleViewer:
@@ -207,9 +214,10 @@ class ArticleViewer:
         console.print("━" * 80, style="cyan")
         console.print()
         
-        # 本文を表示（通常表示）
+        # 本文を中央寄せで表示（通常表示時も同様）
         md = Markdown(article['content'])
-        console.print(md)
+        centered_content = Align.center(md, width=int(console.width * CONTENT_WIDTH_RATIO))
+        console.print(centered_content)
     
     def display_article_with_pager(self, article: Dict, index: int, total: int):
         """ページャー付きで記事を表示"""
@@ -236,26 +244,33 @@ class ArticleViewer:
         
         # ページャーで全体を表示
         with console.pager(styles=True):
-            console.print("━" * 80, style="cyan")
-            console.print(f"📚 記事 {index}/{total}  |  {status}", style="bold cyan")
-            console.print("━" * 80, style="cyan")
+            # 共通の幅設定
+            content_width = int(console.width * CONTENT_WIDTH_RATIO)
+            separator = "━" * content_width
+            
+            # ヘッダー部分（すべて中央寄せ）
+            console.print(Align.center(separator, style="cyan"))
+            console.print(Align.center(f"📚 記事 {index}/{total}  |  {status}", style="bold cyan"))
+            console.print(Align.center(separator, style="cyan"))
             console.print()
-            console.print(f"Feed: [magenta]{feed}[/magenta]  |  Score: [green]{score}[/green]  |  Type: [blue]{article_type}[/blue]")
+            console.print(Align.center(f"Feed: [magenta]{feed}[/magenta]  |  Score: [green]{score}[/green]  |  Type: [blue]{article_type}[/blue]"))
             console.print()
-            console.print(f"Title: [bold white]{title}[/bold white]")
+            console.print(Align.center(f"Title: [bold white]{title}[/bold white]"))
             console.print()
             console.print()
-            console.print(f"URL: [blue underline]{url}[/blue underline]")
+            console.print(Align.center(f"URL: [blue underline]{url}[/blue underline]"))
             console.print()
-            console.print(f"Author: [dim]{author}[/dim]")
-            console.print(f"Published: [dim]{published}[/dim]")
+            console.print(Align.center(f"Author: [dim]{author}[/dim]"))
+            console.print(Align.center(f"Published: [dim]{published}[/dim]"))
             console.print()
-            console.print("━" * 80, style="cyan")
+            console.print(Align.center(separator, style="cyan"))
             console.print()
             
-            # 本文
+            # 本文を中央寄せで表示（左右に余白）
             md = Markdown(article['content'])
-            console.print(md)
+            # 定数で定義された幅で中央寄せ
+            centered_content = Align.center(md, width=content_width)
+            console.print(centered_content)
     
     def interactive_mode(self, articles: List[Dict]):
         """インタラクティブモード"""
@@ -269,30 +284,61 @@ class ArticleViewer:
             console.clear()
             current_article = articles[current_index]
             
-            # 記事表示時に自動で既読マークをつける
-            if not current_article['is_read']:
-                self.state_manager.mark_as_read(current_article['article_id'])
-                current_article['is_read'] = True
-            
             self.display_article_with_pager(current_article, current_index + 1, len(articles))
             
-            console.print("━" * 80)
-            console.print("[cyan]操作キー:[/cyan]")
-            console.print("  [N]ext | [P]rev | [L]ist | [Q]uit | [O]pen URL | [数字]で直接移動")
-            console.print("  [R]ead/Unread | [F]avorite | [D]elete | [U]ndelete")
-            console.print("━" * 80)
+            # 操作メニューを中央寄せで表示
+            separator = "━" * int(console.width * CONTENT_WIDTH_RATIO)
+            menu_title = "[cyan]操作キー:[/cyan]"
             
-            choice = Prompt.ask("選択", default="n").lower()
+            # 最後の記事の場合はNextの表記を変更
+            if current_index == len(articles) - 1:
+                menu_line1 = "  [N]最初に戻る | [P]rev | [L]ist | [Q]uit | [O]pen URL | [数字]で直接移動"
+            else:
+                menu_line1 = "  [N]ext | [P]rev | [L]ist | [Q]uit | [O]pen URL | [数字]で直接移動"
+            menu_line2 = "  [R]ead/Unread | [F]avorite | [D]elete | [U]ndelete"
             
+            console.print(Align.center(separator, width=int(console.width * CONTENT_WIDTH_RATIO)))
+            console.print(Align.center(menu_title, width=int(console.width * CONTENT_WIDTH_RATIO)))
+            console.print(Align.center(menu_line1, width=int(console.width * CONTENT_WIDTH_RATIO)))
+            console.print(Align.center(menu_line2, width=int(console.width * CONTENT_WIDTH_RATIO)))
+            console.print(Align.center(separator, width=int(console.width * CONTENT_WIDTH_RATIO)))
+            console.print()
+            
+            # 入力プロンプトも中央寄せ
+            prompt_text = "選択 (n): "
+            # 中央寄せのために左余白を計算
+            left_padding = " " * int((console.width - int(console.width * CONTENT_WIDTH_RATIO)) / 2)
+            
+            # readlineを有効にするため標準input()を使用
+            try:
+                choice = input(f"{left_padding}{prompt_text}").strip()
+                # 小文字に変換する前に、元の入力を保存（大文字判定用）
+                original_choice = choice
+                choice = choice.lower()
+                if not choice:
+                    choice = 'n'
+            except (EOFError, KeyboardInterrupt):
+                break
+            
+            # 次の記事に進む前に、現在の記事を既読にする
             if choice == 'n' or choice == '':
+                # 既読マークをつける
+                if not current_article['is_read']:
+                    self.state_manager.mark_as_read(current_article['article_id'])
+                    current_article['is_read'] = True
+                # 次の記事へ
                 current_index = (current_index + 1) % len(articles)
             elif choice == 'p':
+                # 前の記事に戻る前に、現在の記事を既読にする
+                if not current_article['is_read']:
+                    self.state_manager.mark_as_read(current_article['article_id'])
+                    current_article['is_read'] = True
                 current_index = (current_index - 1) % len(articles)
             elif choice == 'l':
                 console.clear()
                 self.display_article_list(articles)
                 console.print()
-                Prompt.ask("Enterで続行")
+                input(f"{left_padding}Enterで続行: ")
             elif choice == 'q':
                 break
             elif choice == 'r':
@@ -301,63 +347,92 @@ class ArticleViewer:
                 if current_article['is_read']:
                     self.state_manager.mark_as_unread(article_id)
                     current_article['is_read'] = False
-                    console.print("[green]未読にマークしました[/green]")
+                    console.print(Align.center("[green]未読にマークしました[/green]"))
+                    input(f"{left_padding}Enterで続行: ")
                 else:
                     self.state_manager.mark_as_read(article_id)
                     current_article['is_read'] = True
-                    console.print("[green]既読にマークしました[/green]")
-                Prompt.ask("Enterで続行")
+                    console.print(Align.center("[green]既読にマークしました[/green]"))
+                    # 既読マーク後は自動で次の記事へ（0.5秒待機）
+                    import time
+                    time.sleep(0.5)
+                    current_index = (current_index + 1) % len(articles)
             elif choice == 'f':
                 # お気に入りトグル
                 article_id = current_article['article_id']
                 self.state_manager.toggle_favorite(article_id)
                 current_article['is_favorite'] = self.state_manager.is_favorite(article_id)
                 if current_article['is_favorite']:
-                    console.print("[yellow]⭐ お気に入りに追加しました[/yellow]")
+                    console.print(Align.center("[yellow]⭐ お気に入りに追加しました[/yellow]"))
                 else:
-                    console.print("[yellow]お気に入りから削除しました[/yellow]")
-                Prompt.ask("Enterで続行")
-            elif choice == 'd':
-                # 削除
+                    console.print(Align.center("[yellow]お気に入りから削除しました[/yellow]"))
+                input(f"{left_padding}Enterで続行: ")
+            elif choice == 'd' or original_choice == 'D' or original_choice == 'delete':
+                # 削除（大文字Dまたは"delete"の場合は確認なし、小文字dの場合は確認あり）
                 article_id = current_article['article_id']
-                if Confirm.ask("この記事を削除しますか？"):
+                
+                # 大文字Dまたは"delete"の場合は確認スキップ
+                should_delete = (original_choice == 'D' or original_choice == 'delete')
+                
+                if not should_delete:
+                    # 小文字dの場合は確認プロンプトを中央寄せで表示
+                    confirm_prompt = "この記事を削除しますか？ [y/n]: "
+                    confirm_answer = input(f"{left_padding}{confirm_prompt}").strip().lower()
+                    should_delete = (confirm_answer == 'y' or confirm_answer == 'yes')
+                
+                if should_delete:
+                    # 削除する記事は既読にする
+                    if not current_article['is_read']:
+                        self.state_manager.mark_as_read(article_id)
+                        current_article['is_read'] = True
+                    
                     self.state_manager.mark_as_deleted(article_id)
                     current_article['is_deleted'] = True
-                    console.print("[red]削除しました（ファイルは残っています）[/red]")
+                    console.print(Align.center("[red]削除しました（ファイルは残っています）[/red]"))
                     # 削除後、次の記事へ移動
                     articles = [a for a in articles if not a['is_deleted']]
                     if not articles:
-                        console.print("[yellow]すべての記事を削除しました[/yellow]")
+                        console.print(Align.center("[yellow]すべての記事を削除しました[/yellow]"))
                         break
                     current_index = min(current_index, len(articles) - 1)
-                    Prompt.ask("Enterで続行")
+                    # 自動で次の記事へ進む（0.5秒待機）
+                    import time
+                    time.sleep(0.5)
             elif choice == 'u':
                 # 削除解除（削除済み記事を表示している場合）
                 article_id = current_article['article_id']
                 self.state_manager.undelete(article_id)
                 current_article['is_deleted'] = False
                 console.print("[green]削除を解除しました[/green]")
-                Prompt.ask("Enterで続行")
+                input("Enterで続行: ")
             elif choice == 'o':
-                # 元記事のURLを表示
+                # 元記事のURLを表示（中央寄せ）
                 url = current_article['metadata'].get('url', '')
                 if url:
                     console.print()
-                    console.print("[bold cyan]📎 元記事URL:[/bold cyan]")
-                    console.print(f"[blue underline]{url}[/blue underline]")
-                    console.print()
-                    console.print("[dim]※ Cmd+クリック（macOS）またはURLをコピーしてブラウザで開いてください[/dim]")
+                    # URL表示を中央寄せ
+                    url_text = Text()
+                    url_text.append("📎 元記事URL:\n", style="bold cyan")
+                    url_text.append(f"{url}\n\n", style="blue underline")
+                    url_text.append("※ Cmd+クリック（macOS）またはURLをコピーしてブラウザで開いてください", style="dim")
+                    
+                    centered_url = Align.center(url_text)
+                    console.print(centered_url)
                 else:
-                    console.print("[red]URLが見つかりません[/red]")
+                    console.print(Align.center("[red]URLが見つかりません[/red]"))
                 console.print()
-                Prompt.ask("Enterで続行")
+                input(f"{left_padding}Enterで続行: ")
             elif choice.isdigit():
                 idx = int(choice) - 1
                 if 0 <= idx < len(articles):
+                    # 別の記事に移動する前に、現在の記事を既読にする
+                    if not current_article['is_read']:
+                        self.state_manager.mark_as_read(current_article['article_id'])
+                        current_article['is_read'] = True
                     current_index = idx
                 else:
-                    console.print(f"[red]無効な番号です(1-{len(articles)})[/red]")
-                    Prompt.ask("Enterキーで続行")
+                    console.print(Align.center(f"[red]無効な番号です(1-{len(articles)})[/red]"))
+                    input(f"{left_padding}Enterで続行: ")
 
 
 def main():
@@ -373,7 +448,7 @@ def main():
     parser.add_argument('--interactive', '-i', action='store_true', help='インタラクティブモード（デフォルト）')
     
     # 状態フィルタ
-    parser.add_argument('--unread', action='store_true', help='未読記事のみ表示')
+    parser.add_argument('--all', action='store_true', help='既読記事も表示（デフォルトは未読のみ）')
     parser.add_argument('--favorites', action='store_true', help='お気に入り記事のみ表示')
     parser.add_argument('--show-deleted', action='store_true', help='削除済み記事も表示')
     parser.add_argument('--stats', action='store_true', help='統計情報を表示')
@@ -402,13 +477,21 @@ def main():
     
     # 記事を読み込み
     console.print("[cyan]記事を読み込み中...[/cyan]")
+    
+    # デフォルトで未読のみ表示（--allで既読も表示）
+    unread_only = not args.all and not args.favorites  # favoritesの場合は既読も含む
+    
+    # デバッグ情報
+    if unread_only:
+        console.print("[dim]（未読のみ表示 - 既読も見るには --all を使用）[/dim]")
+    
     articles = viewer.load_articles(
         feed=args.feed,
         min_score=args.min_score,
         article_type=args.type,
         since_date=since_date,
         show_deleted=args.show_deleted,
-        unread_only=args.unread,
+        unread_only=unread_only,
         favorites_only=args.favorites
     )
     

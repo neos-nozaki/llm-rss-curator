@@ -62,7 +62,7 @@ class WebScraper:
                 # フィルタリングスコアをチェック（設定されている場合のみ）
                 if 'filter_score' in metadata:
                     # user_preferences.jsonから閾値を取得
-                    filter_config_path = Path(__file__).parent.parent / 'rss-filter' / 'config' / 'user_preferences.json'
+                    filter_config_path = Path(__file__).parent.parent / 'llm-judge' / 'config' / 'user_preferences.json'
                     if filter_config_path.exists():
                         with open(filter_config_path, 'r', encoding='utf-8') as f:
                             user_prefs = json.load(f)

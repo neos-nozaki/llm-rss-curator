@@ -14,7 +14,7 @@
     {
       "topic": "Azure（AI Services、Document Intelligence、コンテナ関連）",
       "priority": 3,
-      "note": "AI関連サービスやDocument Intelligenceの活用事例や新機能。.NETや一般的な製品アップデートは除外"
+      "note": "AI関連サービス限定: Azure OpenAI Service、Azure AI Services (旧Cognitive Services)、Document Intelligence、Machine Learning、AI Search。AKS、.NET、一般的なインフラ更新は除外"
     },
     {
       "topic": "開発のチームビルディング",
@@ -38,7 +38,15 @@
       "技術的洞察のない導入レポート",
       ".NET、C#、Visual Studioに関する記事（AI/LLM文脈を除く）",
       "Windows、SQL Server等のMicrosoft製品アップデート（AI/LLM文脈を除く）",
-      "Azure以外のMicrosoft製品の一般的なアップデート情報"
+      "Azure以外のMicrosoft製品の一般的なアップデート情報",
+      "AKS (Azure Kubernetes Service) の一般的なアップデート（AI/機械学習ワークロード以外）",
+      "Azure Networking、Virtual Network、Load Balancerの一般的なアップデート",
+      "Azure Storage、Blob Storage、Disk Storageの一般的なアップデート（AI/MLデータ管理以外）",
+      "Azure DevOps、GitHub Actions、CI/CDパイプラインの一般的な機能追加（AI/ML開発フロー以外）",
+      "Azure App Service、Azure Functionsの一般的なアップデート（AI/ML統合以外）",
+      "Azure Database (SQL Database, PostgreSQL, MySQL等) の一般的なアップデート（AI/MLデータ処理以外）",
+      "Azure Monitor、Application Insights、Log Analyticsの一般的な機能追加（AI監視以外）",
+      "Azure Security、Key Vault、Microsoft Entra IDの一般的なセキュリティアップデート（AI関連以外）"
     ],
     "high_score": {
       "range": "8-10",

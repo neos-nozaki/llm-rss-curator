@@ -105,17 +105,21 @@ class ArticleProcessor:
             # article_typeに応じてmax_tokensを調整
             max_tokens = 800 if article_type == 'news' else 2000
             
-            response = self.client.chat.completions.create(
+            # Response API: client.responses.create() with input parameter
+            response = self.client.responses.create(
                 model=self.model,
-                messages=[
+                input=[
                     {"role": "system", "content": self.system_prompt},
                     {"role": "user", "content": prompt}
                 ],
+                modalities=["text"],
                 temperature=0.3,
-                max_tokens=max_tokens
+                max_output_tokens=max_tokens,
+                stream=False
             )
             
-            summary = response.choices[0].message.content
+            # Response APIでは response.output[0].content[0].text でテキストを取得
+            summary = response.output[0].content[0].text
             logger.info(f"要約生成完了 (type: {article_type}, tokens: {max_tokens})")
             return summary
             

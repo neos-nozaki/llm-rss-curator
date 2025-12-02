@@ -91,26 +91,65 @@ docker-compose up --build
 ### 記事が重複して取得される
 
 #### 症状
-同じ記事が複数回処理される
+- 同じ記事が複数回処理される
+- LLM Judgeが同じ記事を何度も評価している
+- ログに同じ記事タイトルが繰り返し出力される
 
-#### 解決方法
+#### 原因分析（2025年11月修正済み）
 
-1. **記事IDの確認**
+**旧実装の問題:**
+1. RSS Feederが既存記事を誤って再保存
+2. 件数制限による削除がRSSフィードに含まれる記事を削除
+3. 次回実行時、削除された記事が「新規」として再保存
+4. LLM Judgeが追加した`filter_score`が消失
+5. 無限ループが発生
+
+#### 解決方法（現在のバージョン）
+
+**システムの修正内容:**
+
+1. **URL重複チェック**
+   - 記事IDはURLのMD5ハッシュで生成（同じURLは常に同じID）
+   - 既存記事は自動的にスキップ
+
+2. **既存データの保護**
+   - 既存記事がある場合、`filter_score`等を保持してマージ
+   - LLM処理結果が消失しない
+
+3. **件数制限削除の廃止**
+   - 日数ベース（`RETENTION_DAYS`）の削除のみ
+   - RSSフィードに含まれる記事は削除されない
+
+**動作確認:**
+
 ```bash
-# 同じIDのファイルが複数ないか確認
-find shared/storage/rss-feeds/ -name "*.json" | sort
+# 1. RSS Feederを2回実行（2回目は新規0件のはず）
+docker-compose run --rm rss-feeder
+docker-compose run --rm rss-feeder
+
+# 2. LLM Judgeを2回実行（2回目は処理対象0件のはず）
+docker-compose run --rm llm-judge
+docker-compose run --rm llm-judge
+
+# 3. filter_scoreが保持されているか確認
+cat shared/storage/rss-feeds/zenn-llm/*.json | grep filter_score
 ```
 
-2. **重複ファイルを削除**
-```bash
-# 重複を手動で削除
-rm shared/storage/rss-feeds/aws/duplicate-id.json
+**期待されるログ:**
+```
+# 1回目
+INFO - 完了: zenn-llm - 新規記事 9件
+
+# 2回目（同じフィード）
+INFO - 完了: zenn-llm - 新規記事 0件  ← 既存記事はスキップ
 ```
 
-3. **RSSフィードのURLを確認**
+**問題が継続する場合:**
+
 ```bash
-# feeds.jsonで同じフィードが複数登録されていないか確認
-cat rss-feeder/config/feeds.json
+# 旧バージョンからの移行時、データをクリア
+rm -rf shared/storage/rss-feeds/*
+./run-pipeline.sh
 ```
 
 ## 🌐 スクレイピング関連

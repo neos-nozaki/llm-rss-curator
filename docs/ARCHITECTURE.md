@@ -207,6 +207,93 @@ for field, spec in schema["properties"].items():
 - Pub/Subパターンの導入
 - リアルタイム処理
 
+## 🔄 RSS Feederの重複防止メカニズム
+
+### 記事の一意性保証
+
+RSS Feederは、同じ記事を重複して保存しないように、以下のメカニズムを実装しています:
+
+**1. URLベースの一意ID生成**
+```python
+def generate_article_id(url: str) -> str:
+    """URLのMD5ハッシュから12文字のIDを生成"""
+    return hashlib.md5(url.encode()).hexdigest()[:12]
+```
+
+- 同じURLは常に同じIDを生成
+- MD5ハッシュの衝突確率は実質ゼロ
+- 12文字で十分な一意性を確保
+
+**2. 既存チェックメカニズム**
+```python
+def article_exists(feed_name: str, article_id: str) -> bool:
+    """メタデータファイルの存在をチェック"""
+    article_path = rss_feeds_dir / feed_name / f"{article_id}.json"
+    return article_path.exists()
+```
+
+- ファイルの存在確認のみ（高速）
+- 毎回の実行で既存記事はスキップ
+
+**3. LLM Judgeのフィールド保持**
+
+既存記事が再度RSSフィードに現れた場合でも、LLM Judgeが追加したフィールドを保持します:
+
+```python
+def save_article_metadata(article_data: dict) -> bool:
+    if article_path.exists():
+        # 既存データを読み込み
+        existing_data = json.load(file)
+        # 新規データでマージ（filter_score等は保持）
+        existing_data.update(article_data)
+        # 保存
+        json.dump(existing_data, file)
+        return False  # 既存ファイル
+    else:
+        # 新規保存
+        json.dump(article_data, file)
+        return True  # 新規ファイル
+```
+
+**保持されるフィールド:**
+- `filter_score` - LLM Judge の評価スコア
+- `filter_reason` - 評価理由
+- `article_type` - 記事タイプ（news/tutorial）
+- `interest_match` - マッチした興味トピック
+
+### クリーンアップ戦略（2025年11月修正）
+
+**旧実装の問題点:**
+```python
+# ❌ 件数制限による削除（廃止）
+cleanup_old_articles(max_articles=10)
+# → RSSフィードに含まれる記事を削除 → 次回また保存 → 無限ループ
+```
+
+**現在の実装:**
+```python
+# ✅ 日数ベースの削除のみ
+cleanup_old_articles_by_date(retention_days=7)
+# → 7日以上古い記事のみ削除
+# → RSSフィードから確実に消えた記事だけを削除
+```
+
+**削除基準:**
+- `RETENTION_DAYS`（デフォルト: 7日）より古い記事
+- ファイルの更新日時（`st_mtime`）で判定
+- RSSフィードに含まれる記事は削除されない
+
+**なぜ件数制限を廃止したか:**
+1. RSSフィードは常に最新N件を返す
+2. 件数制限で削除 → 次回またフィードに現れる
+3. 既存チェックが失敗 → 再保存 → filter_score消失
+4. 無限ループが発生
+
+**解決策:**
+- 日数ベースの削除のみ使用
+- RSSフィードから自然に消えた記事だけを削除
+- filter_scoreなどのLLM処理結果を確実に保持
+
 ## 🗄️ データモデル
 
 ### メタデータ（JSON）

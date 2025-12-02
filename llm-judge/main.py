@@ -198,17 +198,21 @@ class RSSFilter:
         user_prompt = self.create_filter_prompt(title, summary)
         
         try:
-            response = self.client.chat.completions.create(
+            # Response API: client.responses.create() with input parameter
+            response = self.client.responses.create(
                 model=self.model,
-                messages=[
+                input=[
                     {"role": "system", "content": self.system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                response_format={"type": "json_object"},
-                temperature=0.3
+                modalities=["text"],
+                temperature=0.3,
+                stream=False
             )
             
-            result = json.loads(response.choices[0].message.content)
+            # Response APIでは response.output[0].content[0].text でテキストを取得
+            result_text = response.output[0].content[0].text
+            result = json.loads(result_text)
             logger.info(f"フィルタリング完了: スコア={result.get('score', 0)}")
             return result
             
