@@ -205,19 +205,38 @@ class RSSFilter:
                     {"role": "system", "content": self.system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                modalities=["text"],
                 temperature=0.3,
                 stream=False
             )
             
-            # Response APIでは response.output[0].content[0].text でテキストを取得
-            result_text = response.output[0].content[0].text
+            # output_textプロパティからテキストを取得
+            result_text = response.output_text
+            
+            # マークダウンコードブロックを除去 (```json ... ```)
+            if result_text.startswith('```'):
+                # 最初の改行までを削除（```json の行）
+                result_text = result_text.split('\n', 1)[1] if '\n' in result_text else result_text
+                # 末尾の ``` を削除
+                if result_text.endswith('```'):
+                    result_text = result_text.rsplit('```', 1)[0]
+                result_text = result_text.strip()
+            
             result = json.loads(result_text)
             logger.info(f"フィルタリング完了: スコア={result.get('score', 0)}")
             return result
             
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON parsing error: {e}")
+            logger.error(f"Problematic text: {result_text if 'result_text' in locals() else 'N/A'}")
+            return {
+                "score": 0,
+                "reason": f"JSON parsing error: {str(e)}",
+                "interest_match": []
+            }
         except Exception as e:
             logger.error(f"フィルタリングエラー: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             return {
                 "score": 0,
                 "reason": f"エラー: {str(e)}",

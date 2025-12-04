@@ -27,8 +27,6 @@ services:
     environment:
       - STORAGE_PATH=/app/storage
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-    depends_on:
-      - rss-feeder
     command: python main.py
 
   web-scraper:

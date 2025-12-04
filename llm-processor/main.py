@@ -112,14 +112,21 @@ class ArticleProcessor:
                     {"role": "system", "content": self.system_prompt},
                     {"role": "user", "content": prompt}
                 ],
-                modalities=["text"],
                 temperature=0.3,
                 max_output_tokens=max_tokens,
                 stream=False
             )
             
-            # Response APIでは response.output[0].content[0].text でテキストを取得
-            summary = response.output[0].content[0].text
+            # output_textプロパティからテキストを取得
+            summary = response.output_text
+            
+            # マークダウンコードブロックを除去（必要に応じて）
+            if summary.startswith('```'):
+                summary = summary.split('\n', 1)[1] if '\n' in summary else summary
+                if summary.endswith('```'):
+                    summary = summary.rsplit('```', 1)[0]
+                summary = summary.strip()
+            
             logger.info(f"要約生成完了 (type: {article_type}, tokens: {max_tokens})")
             return summary
             
